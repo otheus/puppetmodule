@@ -227,7 +227,7 @@ class puppet::agent(
         # cron_minute = 'ip:130.10.21.2/16%300'  # mod 300
         # cron_minute = 'ip:%{::ip_address}/22'
 
-        $cron_minute_ip = pick($1,getvar($::ipaddress),"127.0.0.1")
+        $cron_minute_ip = pick($1,getvar('::ipaddress'),"127.0.0.1")
         $cron_minute_mask = pick($2,24)
         $cron_minute_mod = pick($3,60)
         $minute = inline_template('<%=
