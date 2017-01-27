@@ -69,7 +69,7 @@ describe 'puppet::agent', :type => :class do
             :enable  => false,
             :require => "Package[#{params[:puppet_agent_package]}]"
           )
-          should contain_cron('puppet-client').with(
+          should contain_cron('puppet-agent').with(
             :command  => '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
             :user     => 'root',
             :hour     => '5',
@@ -77,6 +77,76 @@ describe 'puppet::agent', :type => :class do
           )
         }
       end
+      context 'using cron-with-ip1' do
+        let(:params) do
+          {
+            :puppet_server          => 'test.exaple.com',
+            :puppet_agent_service   => 'puppet',
+            :puppet_agent_package   => 'puppet',
+            :version                => '/etc/puppet/manifests/site.pp',
+            :puppet_run_style       => 'cron',
+            :splay                  => 'true',
+            :environment            => 'production',
+            :puppet_server_port     => 8140,
+	    :cron_minute => 'ip:10.2.3.44/8%60', # (2*256*256+3*256+44)%60 = 4
+          }
+        end
+        it{
+          should contain_cron('puppet-agent').with(
+            :command  => '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
+            :user     => 'root',
+            :hour     => '*',
+            :minute   => '4'
+          )
+        }
+      end
+      context 'using cron-with-ip2' do
+        let(:params) do
+          {
+            :puppet_server          => 'test.exaple.com',
+            :puppet_agent_service   => 'puppet',
+            :puppet_agent_package   => 'puppet',
+            :version                => '/etc/puppet/manifests/site.pp',
+            :puppet_run_style       => 'cron',
+            :splay                  => 'true',
+            :environment            => 'production',
+            :puppet_server_port     => 8140,
+	    :cron_minute => 'ip:10.2.3.44/16%300', # .. (3*256+44)%300 = 212
+          }
+        end
+        it{
+          should contain_cron('puppet-agent').with(
+            :command  => '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
+            :user     => 'root',
+            :hour     => '*',
+            :minute   => '212'
+          )
+        }
+      end
+      context 'using cron-with-ip3' do
+        let(:params) do
+          {
+            :puppet_server          => 'test.exaple.com',
+            :puppet_agent_service   => 'puppet',
+            :puppet_agent_package   => 'puppet',
+            :version                => '/etc/puppet/manifests/site.pp',
+            :puppet_run_style       => 'cron',
+            :splay                  => 'true',
+            :environment            => 'production',
+            :puppet_server_port     => 8140,
+	    :cron_minute            => 'ip/0', # .. (127*256*256+1)%60 = 53
+          }
+        end
+        it{
+          should contain_cron('puppet-agent').with(
+            :command  => '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
+            :user     => 'root',
+            :hour     => '*',
+            :minute   => '53'
+          )
+        }
+      end
+
     end
 
     describe 'srv records on Debian' do
@@ -230,7 +300,7 @@ describe 'puppet::agent', :type => :class do
             :enable  => false,
             :require => "Package[#{params[:puppet_agent_package]}]"
           )
-          should contain_cron('puppet-client').with(
+          should contain_cron('puppet-agent').with(
             :command  => '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
             :user  => 'root',
             :hour => '*'

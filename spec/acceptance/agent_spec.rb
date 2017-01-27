@@ -48,9 +48,46 @@ describe 'agent tests:' do
         describe cron do
             # Note: This only has four *'s since the minute part is randomized
             # by the agent module.
-            it { should have_entry "* * * * \/usr\/bin\/puppet agent --no-daemonize --onetime --logdest syslog > \/dev\/null 2>&1" }
+            it { should have_entry "% * * * \/usr\/bin\/puppet agent --no-daemonize --onetime --logdest syslog > \/dev\/null 2>&1" }
         end
     end
+
+    context 'agent run from cron-with-ip1' do
+        it 'should work with no errors' do
+            pp = <<-EOS
+                class { 'puppet::agent':
+                    puppet_run_style => 'cron',
+		    cron_minute = 'ip:10.2.3.44/8%60', # (2*256*256+3*256+44)%60 = 24
+                }
+            EOS
+
+            apply_manifest(pp, :catch_failures => true)
+        end
+
+        describe cron do
+            it { should have_entry "22 * * * \/usr\/bin\/puppet agent --no-daemonize --onetime --logdest syslog > \/dev\/null 2>&1" }
+        end
+    end
+
+    context 'agent run from cron-with-ip2' do
+        it 'should work with no errors' do
+            pp = <<-EOS
+                class { 'puppet::agent':
+                    puppet_run_style => 'cron',
+		    cron_minute = 'ip:10.2.3.44/16%300', # .. (3*256+44)%300 = 212
+                }
+            EOS
+
+            apply_manifest(pp, :catch_failures => true)
+        end
+
+        describe cron do
+            it { should have_entry "122 * * * \/usr\/bin\/puppet agent --no-daemonize --onetime --logdest syslog > \/dev\/null 2>&1" }
+        end
+    end
+
+
+
 
     context 'agent run style manual' do
         it 'should work with no errors' do

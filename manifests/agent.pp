@@ -200,21 +200,55 @@ class puppet::agent(
       $service_enable = false
 
       # Default to every 30 minutes - random around the clock
-      if $cron_minute == undef {
+      if $cron_minute == undef  or  $cron_minute == 'random' {
         $time1  =  fqdn_rand(30)
         $time2  =  $time1 + 30
         $minute = [ $time1, $time2 ]
+      }
+      elsif $cron_minute =~ /^ip(?::(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))?(?:\/(\d+))?(?:%(\d+))?$/ {
+        # Determine the minute to run puppet based on this hosts' IP address
+        #  with fine-grained control based on optionally provided IP, mask and modulo.
+        #  Defaults:
+        #   node ip (based on fact),
+        #   ignore most-significatnt 24 bits,
+        #   modulo 60.
+        # Thus, if this node's IP is 10.2.7.63, mask is 24, mod is 60,
+        #   minute <- 3
+        # If IP is 10.2.9.63, mask is 16, mod is 300, then
+        #   minute <- 267
+
+        # Test cases (TODO)
+        # cron_minute = 'ip' # node's ip , mask 24, mod 60
+        # cron_minute = 'ip%180' # node's ip, mask 24, mod 180
+        # cron_minute = 'ip/22'  # node's ip, mask 22,mod 60
+        # cron_minute = 'ip/16%600'  # node's ip, mask 16,mod 600
+        # cron_minute = 'ip:130.10.21.2'
+        # cron_minute = 'ip:130.10.21.2/24'
+        # cron_minute = 'ip:130.10.21.2/16%300'  # mod 300
+        # cron_minute = 'ip:%{::ip_address}/22'
+
+        $cron_minute_ip = pick($1,$::ipaddress,"127.0.0.1")
+        $cron_minute_mask = pick($2,24)
+        $cron_minute_mod = pick($3,60)
+        $minute = inline_template('<%=
+          require "ipaddr";
+          a=@cron_minute_ip; b=@cron_minute_mask.to_i;c=@cron_minute_mod.to_i
+          # Convert ip address to int, then mask by inverted subnet mask, then mod
+          ((IPAddr.new(a).to_i & ~(0xFFFFFFFF << (32-b))) % c)
+        %>')
       }
       else {
         $minute = $cron_minute
       }
 
-      cron { 'puppet-client':
+      cron { 'puppet-agent':
         command => $puppet_run_command,
         user    => 'root',
         hour    => $cron_hour,
         minute  => $minute,
       }
+      cron { 'puppet-client': ensure  => 'absent', } # Why did someone name this "client"?
+
     }
     # Run Puppet through external tooling, like MCollective
     'external': {
